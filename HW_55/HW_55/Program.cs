@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -8,19 +9,24 @@ namespace HW_55;
 class Program
 {
     private const int MillisecondsPerMinute = 100;
-    private static readonly object ConsoleLock = new object();
 
-    static void Main(string[] args)
+    static async Task Main(string[] args)
     {
         Console.OutputEncoding = Encoding.UTF8;
 
         RunFirstTask();
 
         Console.WriteLine();
-        Console.WriteLine("================ > - < ==================");
+        Console.WriteLine("==================================");
         Console.WriteLine();
 
         RunSecondTask();
+
+        Console.WriteLine();
+        Console.WriteLine("==================================");
+        Console.WriteLine();
+
+        await RunThirdTaskAsync();
     }
 
     static void RunFirstTask()
@@ -91,19 +97,54 @@ class Program
 
         int optimizedTotalMinutes = firstBlockMinutes + secondBlockMinutes + dressedMinutes + workMinutes;
 
+        PrintOptimizedResult("Фактическое время с параллельными задачами", optimizedTotalMinutes);
+    }
+
+    static async Task RunThirdTaskAsync()
+    {
+        Console.WriteLine("Задание 3. Асинхронное утро через async - await.");
         Console.WriteLine();
-        Console.WriteLine($"Фактическое время с параллельными задачами: {optimizedTotalMinutes} минут.");
+        Console.WriteLine("Вася проснулся в 07:30.");
+        Console.WriteLine();
 
-        int availableMinutes = 90;
+        Task<int> lieInBedTask = LieInBedAsync();
+        Task<int> kettleTask = PutKettleOnStoveAsync();
+        Task<int> dinnerTask = HeatDinnerAsync();
+        Task<int> fillBathTask = FillBathAsync();
 
-        if (optimizedTotalMinutes > availableMinutes)
-        {
-            Console.WriteLine($"Вася опоздал на {optimizedTotalMinutes - availableMinutes} минут.");
-        }
-        else
-        {
-            Console.WriteLine($"Вася успел. В запасе осталось {availableMinutes - optimizedTotalMinutes} минут.");
-        }
+        int[] firstBlockResults = await Task.WhenAll(
+            lieInBedTask,
+            kettleTask,
+            dinnerTask,
+            fillBathTask
+        );
+
+        int firstBlockMinutes = firstBlockResults.Max();
+
+        Console.WriteLine();
+        Console.WriteLine($"Первый асинхронный блок занял: {firstBlockMinutes} минут.");
+        Console.WriteLine();
+
+        Task<int> takeBathTask = TakeBathAsync();
+        Task<int> breakfastTask = HaveBreakfastAsync();
+
+        int[] secondBlockResults = await Task.WhenAll(
+            takeBathTask,
+            breakfastTask
+        );
+
+        int secondBlockMinutes = secondBlockResults.Max();
+
+        Console.WriteLine();
+        Console.WriteLine($"Второй асинхронный блок занял: {secondBlockMinutes} минут.");
+        Console.WriteLine();
+
+        int dressedMinutes = await GetDressedAsync();
+        int workMinutes = await GoToWorkAsync();
+
+        int optimizedTotalMinutes = firstBlockMinutes + secondBlockMinutes + dressedMinutes + workMinutes;
+
+        PrintOptimizedResult("Фактическое время с асинхронными задачами", optimizedTotalMinutes);
     }
 
     static int LieInBed()
@@ -146,9 +187,49 @@ class Program
         return DoAction("Едет на работу", 55);
     }
 
+    static async Task<int> LieInBedAsync()
+    {
+        return await DoActionAsync("Просыпается и лежит в кровати", 15);
+    }
+
+    static async Task<int> PutKettleOnStoveAsync()
+    {
+        return await DoActionAsync("Ставит чайник на плиту", 5);
+    }
+
+    static async Task<int> HeatDinnerAsync()
+    {
+        return await DoActionAsync("Подогревает вчерашний ужин", 5);
+    }
+
+    static async Task<int> FillBathAsync()
+    {
+        return await DoActionAsync("Набирает ванну", 10);
+    }
+
+    static async Task<int> TakeBathAsync()
+    {
+        return await DoActionAsync("Принимает ванну", 15);
+    }
+
+    static async Task<int> HaveBreakfastAsync()
+    {
+        return await DoActionAsync("Завтракает", 10);
+    }
+
+    static async Task<int> GetDressedAsync()
+    {
+        return await DoActionAsync("Одевается", 5);
+    }
+
+    static async Task<int> GoToWorkAsync()
+    {
+        return await DoActionAsync("Едет на работу", 55);
+    }
+
     static int DoAction(string actionName, int minutes)
     {
-        WriteLine($"Начал: {actionName}. Плановое время: {minutes} минут.");
+        Console.WriteLine($"Начал: {actionName}. Плановое время: {minutes} минут.");
 
         int delay = minutes * MillisecondsPerMinute;
 
@@ -159,7 +240,25 @@ class Program
 
         Thread.Sleep(delay);
 
-        WriteLine($"Закончил: {actionName}. Затрачено: {minutes} минут.");
+        Console.WriteLine($"Закончил: {actionName}. Затрачено: {minutes} минут.");
+
+        return minutes;
+    }
+
+    static async Task<int> DoActionAsync(string actionName, int minutes)
+    {
+        Console.WriteLine($"Начал: {actionName}. Плановое время: {minutes} минут.");
+
+        int delay = minutes * MillisecondsPerMinute;
+
+        if (delay > 5000)
+        {
+            delay = 5000;
+        }
+
+        await Task.Delay(delay);
+
+        Console.WriteLine($"Закончил: {actionName}. Затрачено: {minutes} минут.");
 
         return minutes;
     }
@@ -181,11 +280,20 @@ class Program
         }
     }
 
-    static void WriteLine(string text)
+    static void PrintOptimizedResult(string title, int totalMinutes)
     {
-        lock (ConsoleLock)
+        Console.WriteLine();
+        Console.WriteLine($"{title}: {totalMinutes} минут.");
+
+        int availableMinutes = 90;
+
+        if (totalMinutes > availableMinutes)
         {
-            Console.WriteLine(text);
+            Console.WriteLine($"Вася опоздал на {totalMinutes - availableMinutes} минут.");
+        }
+        else
+        {
+            Console.WriteLine($"Вася успел. В запасе осталось {availableMinutes - totalMinutes} минут.");
         }
     }
 }
