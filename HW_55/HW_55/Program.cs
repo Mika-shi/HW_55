@@ -17,13 +17,13 @@ class Program
         RunFirstTask();
 
         Console.WriteLine();
-        Console.WriteLine("==================================");
+        Console.WriteLine("================ > - < ==================");
         Console.WriteLine();
 
         RunSecondTask();
 
         Console.WriteLine();
-        Console.WriteLine("==================================");
+        Console.WriteLine("================ > - < ==================");
         Console.WriteLine();
 
         await RunThirdTaskAsync();
@@ -55,7 +55,7 @@ class Program
         totalMinutes += GetDressed();
         totalMinutes += GoToWork();
 
-        PrintResult(totalMinutes);
+        PrintResult("Всего времени затрачено", totalMinutes);
     }
 
     static void RunSecondTask()
@@ -63,17 +63,19 @@ class Program
         Console.WriteLine("Задание 2. Оптимизированное утро через TPL.");
         Console.WriteLine();
         Console.WriteLine("Вася проснулся в 07:30.");
+        Console.WriteLine("Вася запускает автоматические процессы и возвращается в кровать.");
         Console.WriteLine();
 
-        Task<int> lieInBedTask = Task.Run(LieInBed);
         Task<int> kettleTask = Task.Run(PutKettleOnStove);
         Task<int> dinnerTask = Task.Run(HeatDinner);
         Task<int> fillBathTask = Task.Run(FillBath);
 
-        Task.WaitAll(lieInBedTask, kettleTask, dinnerTask, fillBathTask);
+        int lieInBedMinutes = LieInBed();
+
+        Task.WaitAll(kettleTask, dinnerTask, fillBathTask);
 
         int firstBlockMinutes = Math.Max(
-            lieInBedTask.Result,
+            lieInBedMinutes,
             Math.Max(kettleTask.Result, Math.Max(dinnerTask.Result, fillBathTask.Result))
         );
 
@@ -81,42 +83,44 @@ class Program
         Console.WriteLine($"Первый параллельный блок занял: {firstBlockMinutes} минут.");
         Console.WriteLine();
 
-        Task<int> takeBathTask = Task.Run(TakeBath);
-        Task<int> breakfastTask = Task.Run(HaveBreakfast);
-
-        Task.WaitAll(takeBathTask, breakfastTask);
-
-        int secondBlockMinutes = Math.Max(takeBathTask.Result, breakfastTask.Result);
-
-        Console.WriteLine();
-        Console.WriteLine($"Второй параллельный блок занял: {secondBlockMinutes} минут.");
-        Console.WriteLine();
-
+        int takeBathMinutes = TakeBath();
         int dressedMinutes = GetDressed();
+
+        Console.WriteLine();
+        Console.WriteLine("Вася опаздывает, поэтому пропускает завтрак.");
+        Console.WriteLine();
+
         int workMinutes = GoToWork();
 
-        int optimizedTotalMinutes = firstBlockMinutes + secondBlockMinutes + dressedMinutes + workMinutes;
+        int optimizedTotalMinutes = firstBlockMinutes + takeBathMinutes + dressedMinutes + workMinutes;
 
-        PrintOptimizedResult("Фактическое время с параллельными задачами", optimizedTotalMinutes);
+        PrintResult("Фактическое время с параллельными задачами без завтрака", optimizedTotalMinutes);
+
+        Console.WriteLine("Итог: Вася успел на работу, но не успел позавтракать.");
     }
 
     static async Task RunThirdTaskAsync()
     {
-        Console.WriteLine("Задание 3. Асинхронное утро через async - await.");
+        Console.WriteLine("Задание 3. Асинхронное утро через async/await.");
         Console.WriteLine();
         Console.WriteLine("Вася проснулся в 07:30.");
+        Console.WriteLine("Теперь Вася запускает общие действия асинхронно и дожидается самого долгого.");
         Console.WriteLine();
 
-        Task<int> lieInBedTask = LieInBedAsync();
         Task<int> kettleTask = PutKettleOnStoveAsync();
         Task<int> dinnerTask = HeatDinnerAsync();
         Task<int> fillBathTask = FillBathAsync();
 
+        Console.WriteLine("Пока чайник кипит, ужин греется, а ванна набирается, Вася лежит в кровати.");
+        Console.WriteLine();
+
+        Task<int> lieInBedTask = LieInBedAsync();
+
         int[] firstBlockResults = await Task.WhenAll(
-            lieInBedTask,
             kettleTask,
             dinnerTask,
-            fillBathTask
+            fillBathTask,
+            lieInBedTask
         );
 
         int firstBlockMinutes = firstBlockResults.Max();
@@ -125,26 +129,32 @@ class Program
         Console.WriteLine($"Первый асинхронный блок занял: {firstBlockMinutes} минут.");
         Console.WriteLine();
 
-        Task<int> takeBathTask = TakeBathAsync();
-        Task<int> breakfastTask = HaveBreakfastAsync();
+        int takeBathMinutes = await TakeBathAsync();
+        int dressedMinutes = await GetDressedAsync();
 
-        int[] secondBlockResults = await Task.WhenAll(
-            takeBathTask,
-            breakfastTask
+        Console.WriteLine();
+        Console.WriteLine("Вася берёт завтрак с собой и завтракает по дороге на работу.");
+        Console.WriteLine();
+
+        Task<int> breakfastTask = HaveBreakfastAsync();
+        Task<int> workTask = GoToWorkAsync();
+
+        int[] lastBlockResults = await Task.WhenAll(
+            breakfastTask,
+            workTask
         );
 
-        int secondBlockMinutes = secondBlockResults.Max();
+        int lastBlockMinutes = lastBlockResults.Max();
 
         Console.WriteLine();
-        Console.WriteLine($"Второй асинхронный блок занял: {secondBlockMinutes} минут.");
+        Console.WriteLine($"Последний асинхронный блок занял: {lastBlockMinutes} минут.");
         Console.WriteLine();
 
-        int dressedMinutes = await GetDressedAsync();
-        int workMinutes = await GoToWorkAsync();
+        int optimizedTotalMinutes = firstBlockMinutes + takeBathMinutes + dressedMinutes + lastBlockMinutes;
+        
+        PrintResult("Фактическое время с асинхронными задачами", optimizedTotalMinutes);
 
-        int optimizedTotalMinutes = firstBlockMinutes + secondBlockMinutes + dressedMinutes + workMinutes;
-
-        PrintOptimizedResult("Фактическое время с асинхронными задачами", optimizedTotalMinutes);
+        Console.WriteLine("Итог: Вася успел на работу и успел сделать все дела.");
     }
 
     static int LieInBed()
@@ -154,17 +164,17 @@ class Program
 
     static int PutKettleOnStove()
     {
-        return DoAction("Ставит чайник на плиту", 5);
+        return DoAction("Чайник кипит после того, как Вася поставил его на плиту", 5);
     }
 
     static int HeatDinner()
     {
-        return DoAction("Подогревает вчерашний ужин", 5);
+        return DoAction("Вчерашний ужин подогревается", 5);
     }
 
     static int FillBath()
     {
-        return DoAction("Набирает ванну", 10);
+        return DoAction("Ванна набирается", 10);
     }
 
     static int TakeBath()
@@ -194,17 +204,17 @@ class Program
 
     static async Task<int> PutKettleOnStoveAsync()
     {
-        return await DoActionAsync("Ставит чайник на плиту", 5);
+        return await DoActionAsync("Чайник кипит после того, как Вася поставил его на плиту", 5);
     }
 
     static async Task<int> HeatDinnerAsync()
     {
-        return await DoActionAsync("Подогревает вчерашний ужин", 5);
+        return await DoActionAsync("Вчерашний ужин подогревается", 5);
     }
 
     static async Task<int> FillBathAsync()
     {
-        return await DoActionAsync("Набирает ванну", 10);
+        return await DoActionAsync("Ванна набирается", 10);
     }
 
     static async Task<int> TakeBathAsync()
@@ -263,24 +273,7 @@ class Program
         return minutes;
     }
 
-    static void PrintResult(int totalMinutes)
-    {
-        Console.WriteLine();
-        Console.WriteLine($"Всего времени затрачено: {totalMinutes} минут.");
-
-        int availableMinutes = 90;
-
-        if (totalMinutes > availableMinutes)
-        {
-            Console.WriteLine($"Вася опоздал на {totalMinutes - availableMinutes} минут.");
-        }
-        else
-        {
-            Console.WriteLine($"Вася успел. В запасе осталось {availableMinutes - totalMinutes} минут.");
-        }
-    }
-
-    static void PrintOptimizedResult(string title, int totalMinutes)
+    static void PrintResult(string title, int totalMinutes)
     {
         Console.WriteLine();
         Console.WriteLine($"{title}: {totalMinutes} минут.");
